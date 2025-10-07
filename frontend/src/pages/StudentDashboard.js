@@ -38,6 +38,8 @@ import {
   FormControlLabel,
   Checkbox,
   Link,
+  Autocomplete,
+  TextField as MuiTextField,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -1675,32 +1677,41 @@ function StudentDashboard() {
                   </Box>
                 </Box>
 
-                <FormControl fullWidth size="medium">
-                  <InputLabel sx={{ fontWeight: 500 }}>ต้นทาง</InputLabel>
-                  <Select
-                    name="placeIdPickUp"
-                    value={tripFormData.placeIdPickUp}
-                    onChange={handleTripFormChange}
-                    label="ต้นทาง"
-                    disabled={loading || places.length === 0}
-                    variant="outlined"
-                    sx={{
-                      backgroundColor: 'white',
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#a5b4fc'
-                      }
+                <FormControl fullWidth size="medium" sx={{ mt: 0 }}>
+                  <Autocomplete
+                    options={places}
+                    getOptionLabel={(option) => option.placeName || ''}
+                    value={places.find(place => place.placeId === tripFormData.placeIdPickUp) || null}
+                    onChange={(event, newValue) => {
+                      setTripFormData(prev => ({
+                        ...prev,
+                        placeIdPickUp: newValue ? newValue.placeId : ''
+                      }));
                     }}
-                  >
-                    {places.length === 0 ? (
-                      <MenuItem disabled>กำลังโหลดสถานที่...</MenuItem>
-                    ) : (
-                      places.map((place) => (
-                        <MenuItem key={place.placeId} value={place.placeId}>
-                          📍 {place.placeName}
-                        </MenuItem>
-                      ))
+                    disabled={loading || places.length === 0}
+                    renderInput={(params) => (
+                      <MuiTextField
+                        {...params}
+                        label="ค้นหาจุดนัดพบ"
+                        variant="outlined"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': {
+                              borderColor: '#a5b4fc',
+                            },
+                          },
+                        }}
+                      />
                     )}
-                  </Select>
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        📍 {option.placeName}
+                      </Box>
+                    )}
+                    noOptionsText="ไม่พบสถานที่"
+                    loading={places.length === 0}
+                    loadingText="กำลังโหลดสถานที่..."
+                  />
                 </FormControl>
 
                 <Box sx={{ 
@@ -1725,31 +1736,40 @@ function StudentDashboard() {
                 </Box>
 
                 <FormControl fullWidth size="medium">
-                  <InputLabel sx={{ fontWeight: 500 }}>ปลายทาง</InputLabel>
-                  <Select
-                    name="placeIdDestination"
-                    value={tripFormData.placeIdDestination}
-                    onChange={handleTripFormChange}
-                    label="ปลายทาง"
-                    disabled={loading || places.length === 0}
-                    variant="outlined"
-                    sx={{
-                      backgroundColor: 'white',
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#a5b4fc'
-                      }
+                  <Autocomplete
+                    options={places}
+                    getOptionLabel={(option) => option.placeName || ''}
+                    value={places.find(place => place.placeId === tripFormData.placeIdDestination) || null}
+                    onChange={(event, newValue) => {
+                      setTripFormData(prev => ({
+                        ...prev,
+                        placeIdDestination: newValue ? newValue.placeId : ''
+                      }));
                     }}
-                  >
-                    {places.length === 0 ? (
-                      <MenuItem disabled>กำลังโหลดสถานที่...</MenuItem>
-                    ) : (
-                      places.map((place) => (
-                        <MenuItem key={place.placeId} value={place.placeId}>
-                          🎯 {place.placeName}
-                        </MenuItem>
-                      ))
+                    disabled={loading || places.length === 0}
+                    renderInput={(params) => (
+                      <MuiTextField
+                        {...params}
+                        label="ค้นหาปลายทาง"
+                        variant="outlined"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': {
+                              borderColor: '#a5b4fc',
+                            },
+                          },
+                        }}
+                      />
                     )}
-                  </Select>
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        🎯 {option.placeName}
+                      </Box>
+                    )}
+                    noOptionsText="ไม่พบสถานที่"
+                    loading={places.length === 0}
+                    loadingText="กำลังโหลดสถานที่..."
+                  />
                 </FormControl>
 
                 <Box sx={{ mt: 3, mb: 2 }}>

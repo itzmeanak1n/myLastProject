@@ -6,7 +6,6 @@ import {
   TextField,
   Button,
   Box,
-  Alert,
   FormControl,
   InputLabel,
   Select,
@@ -17,10 +16,10 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
-  Fade,
   Zoom,
   Divider,
 } from '@mui/material';
+import Swal from 'sweetalert2';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
@@ -35,7 +34,6 @@ function Login() {
     password: '',
     userType: 'student', // student, rider, admin
   });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({});
@@ -57,7 +55,6 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       // Pass email, password, and userType as separate parameters
@@ -72,7 +69,16 @@ function Login() {
       navigate(redirectPath);
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
+      Swal.fire({
+        icon: 'error',
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        text: err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',
+        confirmButtonText: 'ตกลง',
+        confirmButtonColor: '#1976d2',
+        customClass: {
+          confirmButton: 'sweet-alert-btn'
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -99,13 +105,6 @@ function Login() {
           เข้าสู่ระบบ
         </Typography>
         
-        <Fade in={error !== ''}>
-          <Box width="100%" mb={2}>
-            <Alert severity="error" onClose={() => setError('')}>
-              {error}
-            </Alert>
-          </Box>
-        </Fade>
         
         <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
           <Box component="form" onSubmit={handleSubmit} noValidate>

@@ -93,6 +93,7 @@ function AdminDashboard() {
   const [openRiderFormDialog, setOpenRiderFormDialog] = useState(false);
   const [currentRiderFormData, setCurrentRiderFormData] = useState(null);
   const [riderFormError, setRiderFormError] = useState('');
+  const [riderSortOrder, setRiderSortOrder] = useState('none'); // 'none', 'asc', 'desc'
   const [initialRiderFormState, setInitialRiderFormState] = useState({
     riderNationalId: '',
     riderFirstname: '',
@@ -299,11 +300,22 @@ function AdminDashboard() {
     }
   };
 
+  const sortRiders = (ridersList, sortOrder) => {
+    if (sortOrder === 'none') return [...ridersList];
+    
+    return [...ridersList].sort((a, b) => {
+      const rateA = parseFloat(a.riderRate) || 0;
+      const rateB = parseFloat(b.riderRate) || 0;
+      return sortOrder === 'asc' ? rateA - rateB : rateB - rateA;
+    });
+  };
+
   const fetchRiders = async () => {
     setIsLoadingRiders(true);
     try {
       const ridersRes = await adminService.getRiders();
-      setRiders(ridersRes.data);
+      const sortedRiders = sortRiders(ridersRes.data, riderSortOrder);
+      setRiders(sortedRiders);
     } catch (error) {
       console.error('Error fetching riders:', error);
       enqueueSnackbar('เกิดข้อผิดพลาดในการโหลดข้อมูลไรเดอร์', { variant: 'error' });
@@ -953,10 +965,40 @@ function AdminDashboard() {
   );
   };
 
+  const handleSortRiders = (order) => {
+    setRiderSortOrder(order);
+    const sortedRiders = sortRiders(riders, order);
+    setRiders(sortedRiders);
+  };
+
   const renderRidersTable = () => {
     console.log('Riders data:', riders);
     return (
       <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">จัดการไรเดอร์</Typography>
+          <Box>
+            <Button
+              variant={riderSortOrder === 'desc' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => handleSortRiders('desc')}
+              sx={{ mr: 1, minWidth: 100 }}
+              startIcon={<span>⬇️</span>}
+            >
+              เรตสูงสุด
+            </Button>
+            <Button
+              variant={riderSortOrder === 'asc' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => handleSortRiders('asc')}
+              sx={{ mr: 1, minWidth: 100 }}
+              startIcon={<span>⬆️</span>}
+            >
+              เรตต่ำสุด
+            </Button>
+  
+          </Box>
+        </Box>
         {isLoadingRiders ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
             <CircularProgress size={40} />
@@ -1026,7 +1068,7 @@ function AdminDashboard() {
                       {rider.riderFirstname || ''} {rider.riderLastname || ''}
                     </Typography>
   
-                    <Box sx={{ textAlign: 'center', mb: 2 }}>
+                    <Box sx={{ textAlign: 'center', mb: 1 }}>
                       <Chip 
                         label={rider.status || 'inactive'}
                         size="small"
@@ -1039,6 +1081,13 @@ function AdminDashboard() {
                           fontWeight: 500
                         }}
                       />
+                    </Box>
+
+                    <Box sx={{ textAlign: 'center', mb: 2 }}>
+                      <Typography variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ color: '#ffc107' }}>★</span>
+                        {rider.riderRate ? `${parseFloat(rider.riderRate).toFixed(1)}/5.0` : 'ยังไม่มีคะแนน'}
+                      </Typography>
                     </Box>
   
                     <Box sx={{ mb: 2 }}>
