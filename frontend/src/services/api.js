@@ -863,34 +863,29 @@ export const studentService = {
   },
 
   // getTrips: () => createApiClient().get('/riders/trips'),
-
-  // Admin services
-  getStatus: () => createApiClient().get('/api/riders/status'),
-  updateStatus: (status) => createApiClient().put('/api/riders/status', { status })
 };
 
 // Admin services
 export const adminService = {
+  // Rider management
+  getRiders: () => createApiClient().get('/api/admin/riders'),
+  searchRiders: (query) => createApiClient().get('/api/admin/riders/search', { params: { q: query } }),
+  getRiderById: (riderId) => createApiClient().get(`/api/admin/riders/${riderId}`),
+  createRider: (riderData) => createApiClient().post('/api/admin/riders', riderData),
+  updateRider: (riderId, data) => createApiClient().put(`/api/admin/riders/${riderId}`, data),
+  deleteRider: (riderId) => createApiClient().delete(`/api/admin/riders/${riderId}`),
+  approveRider: (riderId) => createApiClient().put(`/api/admin/riders/${riderId}/approve`),
+  resetRiderPassword: (riderId, { newPassword }) => createApiClient().post(`/api/admin/riders/${riderId}/reset-password`, { newPassword }),
+  deleteRiderVehicle: (carId) => createApiClient().delete(`/api/admin/vehicles/${carId}`),
+  
   // Student management
-  getStudents: async () => {
-    const apiClient = createApiClient();
-    return await apiClient.get('/api/admin/students');
-  },
+  getStudents: () => createApiClient().get('/api/admin/students'),
   getStudent: (id) => createApiClient().get(`/api/admin/students/${id}`),
   createStudent: (data) => createApiClient().post('/api/admin/students', data),
   updateStudent: (id, data) => createApiClient().put(`/api/admin/students/${id}`, data),
   deleteStudent: (id) => createApiClient().delete(`/api/admin/students/${id}`),
-  resetStudentPassword: async (studentId, { newPassword }) => {
-    const apiClient = createApiClient();
-    return await apiClient.post(`/api/admin/students/${studentId}/reset-password`, { newPassword });
-  },
-
-  // Rider management
-  getRiders: async () => {
-    const apiClient = createApiClient();
-    return await apiClient.get('/api/admin/riders');
-  },
-  getRiderById: (riderId) => createApiClient().get(`/api/admin/riders/${riderId}`),
+  searchStudents: (query) => createApiClient().get('/api/admin/students/search', { params: { q: query } }),
+  resetStudentPassword: (studentId, { newPassword }) => createApiClient().post(`/api/admin/students/${studentId}/reset-password`, { newPassword }),
   createRider: async (riderData) => {
     const apiClient = createApiClient();
     return await apiClient.post('/api/admin/riders', riderData);

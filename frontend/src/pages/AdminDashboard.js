@@ -35,10 +35,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Tabs,
   TextField,
   Tooltip,
   Typography,
+  InputAdornment,
   useTheme,
   Link as MuiLink,
 } from '@mui/material';
@@ -46,6 +48,7 @@ import { useAuth } from '../context/AuthContext';
 import { adminService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -76,6 +79,182 @@ function AdminDashboard() {
   });
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  // Search related states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [openSearchDialog, setOpenSearchDialog] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Search dialog handlers
+  const handleOpenSearchDialog = () => {
+    setOpenSearchDialog(true);
+  };
+
+  const handleCloseSearchDialog = () => {
+    setOpenSearchDialog(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  // Search function with enhanced search across multiple fields
+  const handleSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) {
+      enqueueSnackbar('Please enter a search term', { variant: 'warning' });
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // First try to search using the API if available
+      try {
+        const response = await adminService.searchStudents(query);
+        setSearchResults(response.data || []);
+      } catch (apiError) {
+        console.warn('API search failed, falling back to client-side search', apiError);
+        // If API search fails, fall back to client-side search
+        const filtered = students.filter(student => {
+          const searchLower = query.toLowerCase();
+          return (
+            student.studentId?.toLowerCase().includes(searchLower) ||
+            (student.userFirstname && student.userFirstname.toLowerCase().includes(searchLower)) ||
+            (student.userLastname && student.userLastname.toLowerCase().includes(searchLower)) ||
+            (student.userEmail && student.userEmail.toLowerCase().includes(searchLower))
+          );
+        });
+        setSearchResults(filtered);
+      }
+      
+      // Show the search results dialog
+      setOpenSearchDialog(true);
+    } catch (error) {
+      console.error('Error searching students:', error);
+      enqueueSnackbar('Failed to search students', { variant: 'error' });
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Search Results Dialog Component
+  const SearchResultsDialog = () => {
+    const [orderBy, setOrderBy] = useState('studentId');
+    const [order, setOrder] = useState('asc');
+
+    const handleRequestSort = (property) => {
+      const isAsc = orderBy === property && order === 'asc';
+      setOrder(isAsc ? 'desc' : 'asc');
+      setOrderBy(property);
+    };
+
+    // Sort the search results
+    const sortedResults = [...searchResults].sort((a, b) => {
+      let aValue = a[orderBy] || '';
+      let bValue = b[orderBy] || '';
+      
+      // Handle nested properties
+      if (orderBy === 'name') {
+        aValue = `${a.userFirstname || ''} ${a.userLastname || ''}`.trim();
+        bValue = `${b.userFirstname || ''} ${b.userLastname || ''}`.trim();
+      }
+      
+      if (aValue < bValue) {
+        return order === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return order === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return (
+      <Dialog 
+        open={openSearchDialog} 
+        onClose={handleCloseSearchDialog}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Search Results</DialogTitle>
+        <DialogContent>
+          {isSearching ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : searchResults.length > 0 ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell 
+                      sortDirection={orderBy === 'studentId' ? order : false}
+                      onClick={() => handleRequestSort('studentId')}
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                    >
+                      <Box display="flex" alignItems="center">
+                        ID
+                        {orderBy === 'studentId' && (
+                          <Box component="span" sx={{ ml: 1 }}>
+                            {order === 'asc' ? '↑' : '↓'}
+                          </Box>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell 
+                      sortDirection={orderBy === 'name' ? order : false}
+                      onClick={() => handleRequestSort('name')}
+                      sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                    >
+                      <Box display="flex" alignItems="center">
+                        Name
+                        {orderBy === 'name' && (
+                          <Box component="span" sx={{ ml: 1 }}>
+                            {order === 'asc' ? '↑' : '↓'}
+                          </Box>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Phone</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedResults.map((student) => (
+                    <TableRow key={student.studentId} hover>
+                      <TableCell>{student.studentId}</TableCell>
+                      <TableCell>{`${student.userFirstname || ''} ${student.userLastname || ''}`}</TableCell>
+                      <TableCell>{student.userEmail || 'N/A'}</TableCell>
+                      <TableCell>{student.userTel || 'N/A'}</TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => {
+                            handleOpenStudentFormDialog(student);
+                            handleCloseSearchDialog();
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Typography variant="body1" align="center" sx={{ p: 3 }}>
+              No students found matching your search.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseSearchDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   const [students, setStudents] = useState(() => {
     try {
       // If there's any initialization needed, do it here
@@ -647,7 +826,7 @@ function AdminDashboard() {
         console.log('Deleting student with ID:', studentId);
         await adminService.deleteStudent(studentId.toString());
         enqueueSnackbar('ลบนักศึกษาสำเร็จ', { variant: 'success' });
-        fetchData();
+        fetchData(); // รีเฟรชข้อมูล
       } catch (err) {
         console.error('Error deleting student:', err);
         enqueueSnackbar(
@@ -663,6 +842,26 @@ function AdminDashboard() {
     console.log('Students data:', students);
     return (
       <Box>
+        {/* Search Bar */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, gap: 1 }}>
+          <TextField
+            size="small"
+            placeholder="ค้นหารายชื่อนักศึกษา..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            sx={{ width: 300 }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SearchIcon />}
+            onClick={handleSearch}
+            disabled={isSearching}
+          >
+            {isSearching ? 'Searching...' : 'Search'}
+          </Button>
+        </Box>
       {/* Header Section */}
 
 
@@ -963,7 +1162,7 @@ function AdminDashboard() {
       </Dialog>
     </Box>
   );
-  };
+};
 
   const handleSortRiders = (order) => {
     setRiderSortOrder(order);
@@ -971,13 +1170,194 @@ function AdminDashboard() {
     setRiders(sortedRiders);
   };
 
+  const [searchRiderQuery, setSearchRiderQuery] = useState('');
+  const [riderSearchResults, setRiderSearchResults] = useState([]);
+  const [openRiderSearchDialog, setOpenRiderSearchDialog] = useState(false);
+  const [isSearchingRiders, setIsSearchingRiders] = useState(false);
+
+  const handleRiderSearch = async () => {
+    const query = searchRiderQuery.trim();
+    if (!query) {
+      enqueueSnackbar('Please enter a search term', { variant: 'warning' });
+      return;
+    }
+
+    setIsSearchingRiders(true);
+    try {
+      // Use client-side search since the API endpoint might not be available
+      const filtered = riders.filter(rider => {
+        const searchLower = query.toLowerCase();
+        return (
+          (rider.riderId && rider.riderId.toLowerCase().includes(searchLower)) ||
+          (rider.riderFirstname && rider.riderFirstname.toLowerCase().includes(searchLower)) ||
+          (rider.riderLastname && rider.riderLastname.toLowerCase().includes(searchLower)) ||
+          (rider.riderEmail && rider.riderEmail.toLowerCase().includes(searchLower)) ||
+          (rider.riderTel && rider.riderTel.includes(query))
+        );
+      });
+      setRiderSearchResults(filtered);
+      
+      // Show the search results dialog
+      setOpenRiderSearchDialog(true);
+    } catch (error) {
+      console.error('Error searching riders:', error);
+      enqueueSnackbar('Failed to search riders', { variant: 'error' });
+      setRiderSearchResults([]);
+    } finally {
+      setIsSearchingRiders(false);
+    }
+  };
+
+  const handleCloseRiderSearchDialog = () => {
+    setOpenRiderSearchDialog(false);
+    setSearchRiderQuery('');
+  };
+
+  // Search Results Dialog Component for Riders
+  const RiderSearchResultsDialog = () => {
+    const [orderBy, setOrderBy] = useState('riderId');
+    const [order, setOrder] = useState('asc');
+
+    const handleRequestSort = (property) => {
+      const isAsc = orderBy === property && order === 'asc';
+      setOrder(isAsc ? 'desc' : 'asc');
+      setOrderBy(property);
+    };
+
+    // Sort the search results
+    const sortedResults = [...riderSearchResults].sort((a, b) => {
+      let aValue = a[orderBy] || '';
+      let bValue = b[orderBy] || '';
+
+      // Handle numeric sorting for riderRate
+      if (orderBy === 'riderRate') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      }
+
+      if (aValue < bValue) {
+        return order === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return order === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return (
+      <Dialog 
+        open={openRiderSearchDialog} 
+        onClose={handleCloseRiderSearchDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Search Results</DialogTitle>
+        <DialogContent>
+          {isSearchingRiders ? (
+            <Box display="flex" justifyContent="center" my={4}>
+              <CircularProgress />
+            </Box>
+          ) : riderSearchResults.length === 0 ? (
+            <Typography>No riders found matching your search.</Typography>
+          ) : (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === 'riderId'}
+                        direction={orderBy === 'riderId' ? order : 'asc'}
+                        onClick={() => handleRequestSort('riderId')}
+                      >
+                        ID
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === 'riderFirstname'}
+                        direction={orderBy === 'riderFirstname' ? order : 'asc'}
+                        onClick={() => handleRequestSort('riderFirstname')}
+                      >
+                        Name
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === 'riderRate'}
+                        direction={orderBy === 'riderRate' ? order : 'asc'}
+                        onClick={() => handleRequestSort('riderRate')}
+                      >
+                        Rating
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedResults.map((rider) => (
+                    <TableRow key={rider.riderId}>
+                      <TableCell>{rider.riderId}</TableCell>
+                      <TableCell>{rider.riderFirstname} {rider.riderLastname}</TableCell>
+                      <TableCell>{rider.riderEmail}</TableCell>
+                      <TableCell>{rider.riderRate || 'N/A'}</TableCell>
+                      <TableCell>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => {
+                            handleOpenRiderFormDialog(rider);
+                            handleCloseRiderSearchDialog();
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseRiderSearchDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   const renderRidersTable = () => {
     console.log('Riders data:', riders);
     return (
       <Box>
+        <RiderSearchResultsDialog />
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">จัดการไรเดอร์</Typography>
-          <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              size="small"
+              placeholder="ค้นหารายชื่อไรเดอร์..."
+              value={searchRiderQuery}
+              onChange={(e) => setSearchRiderQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleRiderSearch()}
+              sx={{ width: 250 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Button
+              variant="contained"
+              onClick={handleRiderSearch}
+              disabled={isSearchingRiders}
+              startIcon={isSearchingRiders ? <CircularProgress size={20} /> : <SearchIcon />}
+            >
+              Search
+            </Button>
             <Button
               variant={riderSortOrder === 'desc' ? 'contained' : 'outlined'}
               size="small"
@@ -1171,27 +1551,72 @@ function AdminDashboard() {
     );
   };
 
-  const renderPlacesTable = () => (
-    <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">จัดการสถานที่</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenPlaceDialog()}
-        >
-          เพิ่มสถานที่
-        </Button>
-      </Box>
-      {placesError && <Alert severity="error" sx={{ mb: 2 }}>{placesError}</Alert>}
-      {isLoadingPlaces ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-          <CircularProgress />
+  const [searchPlaceQuery, setSearchPlaceQuery] = useState('');
+  const [filteredPlaces, setFilteredPlaces] = useState([]);
+
+  useEffect(() => {
+    if (places && Array.isArray(places)) {
+      if (!searchPlaceQuery.trim()) {
+        setFilteredPlaces(places);
+      } else {
+        const query = searchPlaceQuery.toLowerCase();
+        const filtered = places.filter(place => 
+          (place.placeName && place.placeName.toLowerCase().includes(query))
+        );
+        setFilteredPlaces(filtered);
+      }
+    }
+  }, [searchPlaceQuery, places]);
+
+  const handlePlaceSearch = (e) => {
+    setSearchPlaceQuery(e.target.value);
+  };
+
+  const renderPlacesTable = () => {
+    const displayPlaces = searchPlaceQuery ? filteredPlaces : (places || []);
+    
+    return (
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">จัดการสถานที่</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              size="small"
+              placeholder="ค้นหารายชื่อสถานที่..."
+              value={searchPlaceQuery}
+              onChange={handlePlaceSearch}
+              sx={{ width: 250 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenPlaceDialog()}
+            >
+              เพิ่มสถานที่
+            </Button>
+          </Box>
         </Box>
-      ) : places.length === 0 ? (
-        <Typography>ยังไม่มีข้อมูลสถานที่</Typography>
+        {placesError && <Alert severity="error" sx={{ mb: 2 }}>{placesError}</Alert>}
+        {isLoadingPlaces ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : displayPlaces.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <SearchIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+          <Typography variant="h6" color="text.secondary">
+            {searchPlaceQuery ? 'ไม่พบสถานที่ที่ตรงกับคำค้นหา' : 'ยังไม่มีข้อมูลสถานที่'}
+          </Typography>
+        </Box>
       ) : (
-        <TableContainer>
+        <TableContainer component={Paper}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -1202,7 +1627,7 @@ function AdminDashboard() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {places.map((place) => (
+              {displayPlaces.map((place) => (
                 <TableRow key={place.placeId}>
                   <TableCell>
                     {place.pics ? (
@@ -1245,8 +1670,9 @@ function AdminDashboard() {
           </Table>
         </TableContainer>
       )}
-    </Paper>
-  );
+      </Box>
+    );
+  };
 
   const handleOpenPlaceDialog = (place = null) => {
     setPlacesError('');
@@ -1590,7 +2016,9 @@ function AdminDashboard() {
   };
 
   return (
-    <Container maxWidth="lg">
+    <>
+      <SearchResultsDialog />
+      <Container maxWidth="lg">
       <Box sx={{ mt: 4, mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -2010,9 +2438,9 @@ function AdminDashboard() {
         />
       </Box>
     </Container>
+    </>
   );
-
-}
+};
 
 // Reset Password Dialog Component
 const ResetPasswordDialog = ({ 
